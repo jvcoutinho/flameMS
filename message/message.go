@@ -5,10 +5,11 @@ import "errors"
 type Operation int
 
 const (
-	Initialize     Operation = 0
-	Publish        Operation = 1
-	Subscribe      Operation = 2
-	CheckExistence Operation = 3
+	Register       Operation = 0
+	Initialize     Operation = 1
+	Publish        Operation = 2
+	Subscribe      Operation = 3
+	CheckExistence Operation = 4
 )
 
 type Request struct {

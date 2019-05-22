@@ -12,11 +12,12 @@ import (
 // QueueManager ffifui
 type QueueManager struct {
 	queues map[string]*Topic
+	users  map[string]*User
 }
 
 // NewQueueManager Creates new Queue Manager.
 func NewQueueManager() *QueueManager {
-	return &QueueManager{make(map[string]*Topic)}
+	return &QueueManager{make(map[string]*Topic), make(map[string]*User)}
 }
 
 func (manager *QueueManager) Manage(host string, port int) error {
@@ -33,6 +34,8 @@ func (manager *QueueManager) handleRequests(marshaller marshaller.Marshaller, ha
 		request := receiveRequest(marshaller, handler)
 		var err error
 		switch request.GetOperation() {
+		case message.Register:
+			err = manager.registerUser(request.GetRequestor(), handler)
 		case message.Initialize:
 			err = manager.initializeQueue(request.GetQueueName())
 		case message.Publish:
@@ -59,6 +62,22 @@ func returnResponse(marshaller marshaller.Marshaller, handler *RequestHandler, r
 /*
  * REQUESTS
  */
+
+func (manager *QueueManager) registerUser(identifier string, handler *RequestHandler) error {
+	// An user is identified by "identifier:host".
+	absoluteIdentifier := identifier + ":" + handler.GetHost()
+
+	// If it's a known user, then we just need to update its connection status and handler.
+	if user, exists := manager.users[absoluteIdentifier]; exists {
+		user.setConnected(true)
+		user.setHandler(handler)
+	}
+
+	// Otherwise, we create a new one.
+	manager.users[absoluteIdentifier] = newUser(absoluteIdentifier, handler)
+	fmt.Println("User", absoluteIdentifier, "registered.")
+	return nil
+}
 
 func (manager *QueueManager) initializeQueue(queueName string) error {
 	if _, exists := manager.queues[queueName]; exists {
