@@ -40,13 +40,13 @@ func (handler *RequestHandler) Send(data []byte) {
 	handler.conn.Write(data)
 }
 
-func (handler *RequestHandler) Receive() []byte {
+func (handler *RequestHandler) Receive() ([]byte, error) {
 	byteMsg := make([]byte, 2048)
 	read, err := handler.conn.Read(byteMsg)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return byteMsg[:read]
+	return byteMsg[:read], nil
 }
 
 func (handler *RequestHandler) GetHost() string {

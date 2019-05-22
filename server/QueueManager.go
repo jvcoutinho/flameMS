@@ -30,12 +30,20 @@ func (manager *QueueManager) Manage(host string, port int) error {
 }
 
 func (manager *QueueManager) handleRequests(marshaller marshaller.Marshaller, handler *RequestHandler) {
+	var userIdentifier string
 	for {
-		request := receiveRequest(marshaller, handler)
-		var err error
+		request, err := receiveRequest(marshaller, handler)
+
+		if err != nil {
+			if connectionSuccessful := handleConnectionIssues(handler, err); !connectionSuccessful {
+				manager.disconnectUser(userIdentifier)
+				break
+			}
+		}
+
 		switch request.GetOperation() {
 		case message.Register:
-			err = manager.registerUser(request.GetRequestor(), handler)
+			userIdentifier, err = manager.registerUser(request.GetRequestor(), handler)
 		case message.Initialize:
 			err = manager.initializeQueue(request.GetQueueName())
 		case message.Publish:
@@ -46,12 +54,25 @@ func (manager *QueueManager) handleRequests(marshaller marshaller.Marshaller, ha
 			err = manager.checkExistence(request.GetQueueName())
 		}
 		returnResponse(marshaller, handler, message.NewResponse(err))
+
 	}
 }
 
-func receiveRequest(marshaller marshaller.Marshaller, handler *RequestHandler) message.Request {
-	serializedData := handler.Receive()
-	return marshaller.UnmarshalRequest(serializedData)
+func (manager *QueueManager) disconnectUser(user string) {
+	manager.users[user].setConnected(false)
+	manager.users[user].setHandler(nil)
+}
+
+func handleConnectionIssues(handler *RequestHandler, err error) bool {
+	return false // TODO: lidar com desconexões.
+}
+
+func receiveRequest(marshaller marshaller.Marshaller, handler *RequestHandler) (message.Request, error) {
+	serializedData, err := handler.Receive()
+	if err != nil {
+		return message.Request{}, err
+	}
+	return marshaller.UnmarshalRequest(serializedData), nil
 }
 
 func returnResponse(marshaller marshaller.Marshaller, handler *RequestHandler, response *message.Response) {
@@ -63,7 +84,7 @@ func returnResponse(marshaller marshaller.Marshaller, handler *RequestHandler, r
  * REQUESTS
  */
 
-func (manager *QueueManager) registerUser(identifier string, handler *RequestHandler) error {
+func (manager *QueueManager) registerUser(identifier string, handler *RequestHandler) (string, error) {
 	// An user is identified by "identifier:host".
 	absoluteIdentifier := identifier + ":" + handler.GetHost()
 
@@ -76,7 +97,7 @@ func (manager *QueueManager) registerUser(identifier string, handler *RequestHan
 	// Otherwise, we create a new one.
 	manager.users[absoluteIdentifier] = newUser(absoluteIdentifier, handler)
 	fmt.Println("User", absoluteIdentifier, "registered.")
-	return nil
+	return absoluteIdentifier, nil
 }
 
 func (manager *QueueManager) initializeQueue(queueName string) error {
