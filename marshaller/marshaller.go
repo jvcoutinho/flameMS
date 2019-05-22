@@ -7,24 +7,52 @@ import (
 	"../message"
 )
 
+type MessageType int
+
+const (
+	Request  MessageType = 0
+	Response MessageType = 1
+)
+
 type Marshaller interface {
-	Marshal(msg message.Message) []byte
-	Unmarshal(data []byte) message.Message
+	MarshalRequest(request message.Request) []byte
+	MarshalResponse(response message.Response) []byte
+	UnmarshalRequest(data []byte) message.Request
+	UnmarshalResponse(data []byte) message.Response
 }
 
 type JSONMarshaller struct {
 }
 
-func (marshaller *JSONMarshaller) Marshal(msg message.Message) []byte {
-	marshalledData, err := json.Marshal(msg)
+func (JSONMarshaller) MarshalRequest(request message.Request) []byte {
+	marshalledData, err := json.Marshal(request)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 	return marshalledData
 }
 
-func (marshaller *JSONMarshaller) Unmarshal(data []byte) message.Message {
-	unmarshalledData := message.Message{}
+func (JSONMarshaller) MarshalResponse(response message.Response) []byte {
+	marshalledData, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	return marshalledData
+}
+
+func (JSONMarshaller) UnmarshalRequest(data []byte) message.Request {
+
+	unmarshalledData := message.Request{}
+	err := json.Unmarshal(data, &unmarshalledData)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	return unmarshalledData
+}
+
+func (JSONMarshaller) UnmarshalResponse(data []byte) message.Response {
+
+	unmarshalledData := message.Response{}
 	err := json.Unmarshal(data, &unmarshalledData)
 	if err != nil {
 		fmt.Println(err.Error())

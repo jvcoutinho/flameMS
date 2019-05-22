@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -27,45 +28,68 @@ func (manager *QueueManager) Manage(host string, port int) error {
 	}
 }
 
-func (manager *QueueManager) handleRequests(marshaller *marshaller.JSONMarshaller, handler *RequestHandler) {
+func (manager *QueueManager) handleRequests(marshaller marshaller.Marshaller, handler *RequestHandler) {
 	for {
-		message := receiveRequest(marshaller, handler)
-		switch message.GetOperation() {
-		case "init":
-			manager.initializeQueue(message.GetQueueName())
-		case "push":
-			manager.push(message.GetQueueName(), message.GetBody())
-		case "peek":
-			manager.peek(message.GetQueueName())
+		request := receiveRequest(marshaller, handler)
+		var err error
+		switch request.GetOperation() {
+		case message.Initialize:
+			err = manager.initializeQueue(request.GetQueueName())
+		case message.Publish:
+			err = manager.putPublishing(request.GetQueueName(), request.GetBody())
+		case message.Subscribe:
+			err = manager.insertSubscriber(request.GetQueueName(), request.GetRequestor())
+		case message.CheckExistence:
+			err = manager.checkExistence(request.GetQueueName())
 		}
+		returnResponse(marshaller, handler, message.NewResponse(err))
 	}
 }
 
-func receiveRequest(marshaller *marshaller.JSONMarshaller, handler *RequestHandler) message.Message {
+func receiveRequest(marshaller marshaller.Marshaller, handler *RequestHandler) message.Request {
 	serializedData := handler.Receive()
-	return marshaller.Unmarshal(serializedData)
+	return marshaller.UnmarshalRequest(serializedData)
+}
+
+func returnResponse(marshaller marshaller.Marshaller, handler *RequestHandler, response *message.Response) {
+	serializedData := marshaller.MarshalResponse(*response)
+	handler.Send(serializedData)
 }
 
 /*
  * REQUESTS
  */
 
-func (manager *QueueManager) initializeQueue(queueName string) {
-	//TODO: checar se já existe.
+func (manager *QueueManager) initializeQueue(queueName string) error {
+	if _, exists := manager.queues[queueName]; exists {
+		return errors.New("Topic " + queueName + " already exists")
+	}
 	manager.queues[queueName] = NewTopic(queueName)
 	fmt.Println("Queue", queueName, "created successfully.")
+	return nil
 }
 
-func (manager *QueueManager) push(queueName string, item interface{}) {
+func (manager *QueueManager) putPublishing(queueName string, item interface{}) error {
 	topic := manager.queues[queueName]
 	if err := topic.push(item); err != nil {
-		fmt.Println(err.Error())
-		// TODO.
+		return errors.New("Publishing unsuccessful, details:" + err.Error())
 	}
-	fmt.Println("Element added to topic", queueName)
+	return nil
 }
 
-func (manager *QueueManager) peek(queueName string) {
+func (manager *QueueManager) insertSubscriber(queueName string, subscriber string) error {
 	topic := manager.queues[queueName]
-	topic.peek()
+	if topic.isSubscriber(subscriber) {
+		return errors.New("You are already a subscriber")
+	}
+	topic.subscribe(subscriber)
+	fmt.Println("Subscription successful.")
+	return nil
+}
+
+func (manager *QueueManager) checkExistence(queueName string) error {
+	if _, exists := manager.queues[queueName]; exists {
+		return nil
+	}
+	return errors.New("Topic named " + queueName + " has not been initialized yet")
 }

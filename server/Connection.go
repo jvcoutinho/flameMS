@@ -35,6 +35,10 @@ func newRequestHandler(conn net.Conn) *RequestHandler {
 	return &RequestHandler{conn}
 }
 
+func (crh *RequestHandler) Send(data []byte) {
+	crh.conn.Write(data)
+}
+
 func (handler *RequestHandler) Receive() []byte {
 	byteMsg := make([]byte, 2048)
 	read, err := handler.conn.Read(byteMsg)
