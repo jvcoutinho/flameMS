@@ -10,6 +10,8 @@ const (
 	Publish        Operation = 2
 	Subscribe      Operation = 3
 	CheckExistence Operation = 4
+	Topic          Operation = 5
+	Stream         Operation = 6
 )
 
 type Request struct {
@@ -17,6 +19,7 @@ type Request struct {
 	Operation Operation
 	QueueName string
 	Body      interface{}
+	Priority  int
 }
 
 type Response struct {
@@ -39,8 +42,12 @@ func (msg *Request) GetBody() interface{} {
 	return msg.Body
 }
 
-func NewRequest(requestor string, operation Operation, queueName string, body interface{}) *Request {
-	return &Request{requestor, operation, queueName, body}
+func (msg *Request) GetPriority() int {
+	return msg.Priority
+}
+
+func NewRequest(requestor string, operation Operation, queueName string, body interface{}, priority int) *Request {
+	return &Request{requestor, operation, queueName, body, priority}
 }
 
 func NewResponse(err error) *Response {

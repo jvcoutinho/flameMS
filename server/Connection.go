@@ -36,8 +36,9 @@ func newRequestHandler(conn net.Conn) *RequestHandler {
 	return &RequestHandler{conn}
 }
 
-func (handler *RequestHandler) Send(data []byte) {
-	handler.conn.Write(data)
+func (handler *RequestHandler) Send(data []byte) error {
+	_, err := handler.conn.Write(data)
+	return err
 }
 
 func (handler *RequestHandler) Receive() ([]byte, error) {
